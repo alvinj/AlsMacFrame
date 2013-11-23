@@ -21,8 +21,12 @@ object AlsMacFrameTester extends App {
     whitePanel.setSize(new Dimension(400,300))
     whitePanel.setPreferredSize(new Dimension(400,300))
     val f = new AlsMacFrame(whitePanel)
-    f.setBackgroundColor(Color.BLACK)
-    f.setAlphaComposite(0.6f)
+    f.setBackgroundColor(Color.WHITE)
+    f.setAlphaComposite(0.96f)
+
+    f.setTitle("Hello, world")
+    f.setTitleColor(new Color(8, 8, 8))
+
     f.pack
     f.setLocationRelativeTo(null)
     f.setVisible(true)
@@ -33,11 +37,14 @@ object AlsMacFrameTester extends App {
 /**
  * Original code at http://marioyohanes.com/2008/10/31/translucent-custom-shape-window/
  * 
+ * This works if you run it with `sbt run`.
+ * If/when you get NPEs about the images when running in Eclipse, use that command instead.
+ * 
  * TODO Add window close listener.
  * TODO Add a way to set the title?
  * 
  */
-class AlsMacFrame (mainPanel: JPanel) extends JFrame {
+class AlsMacFrame (mainPanel: JComponent) extends JFrame {
     
     // the caller should pass in their "main panel".
     //var mainPanel: JPanel = _
@@ -45,18 +52,38 @@ class AlsMacFrame (mainPanel: JPanel) extends JFrame {
     val cellConstraints = new CellConstraints
     var backgroundColor = new Color(0, 0, 0)
     var alphaComposite = 0.7f
+    var cornerRadius = 20               // larger value makes corners more round
 
-    // border sizes
+    // border row and columns sizes
     // TODO link these together
     // TODO update the total size after the east, west, north, and south sizes are set
-    var northRowHeightInt = 10
+    var northRowHeightInt = 40
     var southRowHeightInt = 10
     var westColumnWidthInt = 10
     var eastColumnWidthInt = 10
-    var northRowHeight = "10px"
+    var northRowHeight = "40px"
     var southRowHeight = "10px"
     var westColumnWidth = "10px"
     var eastColumnWidth = "10px"
+
+    // upper-left corner icons
+    val closeWindowImage = new ImageIcon(this.getClass.getResource("RedCircle.png"))
+    val closeWindowHoverImage = new ImageIcon(this.getClass.getResource("RedCircleHover.png"))
+
+    val minimizeWindowImage = new ImageIcon(this.getClass.getResource("OrangeCircle.png"))
+    val minimizeWindowHoverImage = new ImageIcon(this.getClass.getResource("OrangeCircleHover.png"))
+
+    val maximizeWindowImage = new ImageIcon(this.getClass.getResource("GreenCircle.png"))
+    val maximizeWindowHoverImage = new ImageIcon(this.getClass.getResource("GreenCircleHover.png"))
+
+    // upper-left corner icons
+    val headerPanel = new HeaderPanel
+    headerPanel.setOpaque(false)
+    headerPanel.getButtonPanel.setOpaque(false)
+    val closeWindowButton = headerPanel.getCloseButton
+    val minimizeWindowButton = headerPanel.getMinimizeButton
+    val maximizeWindowButton = headerPanel.getMaximizeButton
+    configureUpperLeftCornerIconRolloverEffects
 
     // constructor stuff
     setUndecorated(true);
@@ -66,24 +93,23 @@ class AlsMacFrame (mainPanel: JPanel) extends JFrame {
 
     val contentPane = getContentPane
     contentPane.setLayout(new FormLayout(
-        //new Array[ColumnSpec] {
         Array(
             new ColumnSpec(westColumnWidth),
             FormFactory.LABEL_COMPONENT_GAP_COLSPEC,
-            new ColumnSpec(ColumnSpec.LEFT, Sizes.DEFAULT, FormSpec.DEFAULT_GROW),
+            new ColumnSpec(ColumnSpec.FILL, Sizes.DEFAULT, FormSpec.DEFAULT_GROW),
             FormFactory.LABEL_COMPONENT_GAP_COLSPEC,
             new ColumnSpec(eastColumnWidth)
         ),
-        //new Array[RowSpec] {
         Array(
             new RowSpec(northRowHeight),
             FormFactory.LINE_GAP_ROWSPEC,
-            new RowSpec(RowSpec.TOP, Sizes.DEFAULT, FormSpec.DEFAULT_GROW),
+            new RowSpec(RowSpec.FILL, Sizes.DEFAULT, FormSpec.DEFAULT_GROW),
             FormFactory.LINE_GAP_ROWSPEC,
             new RowSpec(southRowHeight)
         ))
     )
 
+    contentPane.add(headerPanel, cellConstraints.xyw(1, 1, 5))
     contentPane.add(mainPanel, cellConstraints.xy(3, 3))
     contentPane.add(bottomPane, cellConstraints.xyw(1, 5, 5))
 
@@ -91,12 +117,11 @@ class AlsMacFrame (mainPanel: JPanel) extends JFrame {
     val theWidth = mainPanel.getPreferredSize().width + eastColumnWidthInt + westColumnWidthInt
     val theHeight = mainPanel.getPreferredSize().width + northRowHeightInt + southRowHeightInt
     setSize(theWidth, theHeight)
-    
+
     // make mainframe draggable
     val dwl = new DragWindowListener(this)
     this.addMouseListener(dwl)
     this.addMouseMotionListener(dwl)
-
 
     def createBottomPane: JComponent = {
         val fillerComponent = new JComponent {}
@@ -112,7 +137,7 @@ class AlsMacFrame (mainPanel: JPanel) extends JFrame {
                 val old = g2.getComposite
                 g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alphaComposite))
                 g2.setColor(backgroundColor)
-                val shape = new RoundRectangle2D.Float(0, 0, getWidth, getHeight, 20, 20)
+                val shape = new RoundRectangle2D.Float(0, 0, getWidth, getHeight, cornerRadius, cornerRadius)
                 g2.fill(shape)
                 g2.setComposite(old)
                 g2.dispose
@@ -126,6 +151,37 @@ class AlsMacFrame (mainPanel: JPanel) extends JFrame {
     def setBackgroundColor(backgroundColor: Color) {
         this.backgroundColor = backgroundColor
     }
+    
+    override def setTitle(title: String) {
+        this.headerPanel.getTitle.setText(title)
+    }
+
+    def setTitleColor(color: Color) {
+        this.headerPanel.getTitle.setForeground(color)
+    }
+
+    def setTitleFont(f: Font) {
+        this.headerPanel.setTitleFont(f)
+    }
+
+  def configureUpperLeftCornerIconRolloverEffects {
+    closeWindowButton.setIcon(closeWindowImage)
+    minimizeWindowButton.setIcon(minimizeWindowImage)
+    maximizeWindowButton.setIcon(maximizeWindowImage)  
+
+    closeWindowButton.addMouseListener(new MouseAdapter {
+      override def mouseEntered(e: MouseEvent) { closeWindowButton.setIcon(closeWindowHoverImage) }
+      override def mouseExited(e: MouseEvent) { closeWindowButton.setIcon(closeWindowImage) }
+    })
+    minimizeWindowButton.addMouseListener(new MouseAdapter {
+      override def mouseEntered(e: MouseEvent) { minimizeWindowButton.setIcon(minimizeWindowHoverImage) }
+      override def mouseExited(e: MouseEvent) { minimizeWindowButton.setIcon(minimizeWindowImage) }
+    })
+    maximizeWindowButton.addMouseListener(new MouseAdapter {
+      override def mouseEntered(e: MouseEvent) { maximizeWindowButton.setIcon(maximizeWindowHoverImage) }
+      override def mouseExited(e: MouseEvent) { maximizeWindowButton.setIcon(maximizeWindowImage) }
+    })
+  }
 
 }
 
